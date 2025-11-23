@@ -18,10 +18,15 @@ def load_config():
             'telegram_bot_token': os.getenv('TELEGRAM_BOT_TOKEN'),
             'telegram_chat_id': os.getenv('TELEGRAM_CHAT_ID'),
             'keywords': [
-                "daniel defense", "ddm4", "mk18", "ddm7",
-                "glock 19 gen 5", "glock 19 gen5", "glock 19",
-                "glock 43x", "sig 365x macro", "p365 x-macro",
-                "p365 xmacro", "sig sauer p365"
+                # Daniel Defense variations
+                "daniel defense", "dd", "ddm4", "ddm7", "mk18",
+                # Glock 19 variations
+                "glock 19", "glock19", "g19", "glock 19 gen 5", "glock 19 gen5",
+                # Glock 43X variations
+                "glock 43x", "glock43x", "g43x", "43x",
+                # Sig P365 variations
+                "p365", "365", "p365x", "p365 macro", "p365 x-macro", "p365 xmacro",
+                "sig p365", "sig sauer p365", "365x macro", "x-macro", "xmacro"
             ],
             'max_price': 5000
         }

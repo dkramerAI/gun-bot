@@ -15,7 +15,30 @@ CATEGORY_URL = "https://gunsarizona.com/classifieds-search?se=1&se_cats=23&days_
 
 def load_config():
     with open(CONFIG_FILE, 'r') as f:
-        return json.load(f)
+        config = json.load(f)
+    
+    # Expand keywords with common variations
+    base_keywords = config.get('keywords', [])
+    expanded = []
+    
+    for keyword in base_keywords:
+        expanded.append(keyword.lower())
+        
+    # Add common variations
+    variations = [
+        "dd", "daniel defense", "ddm4", "ddm7", "mk18",
+        "glock 19", "glock19", "g19", "gen 5", "gen5",
+        "glock 43x", "glock43x", "g43x", "43x",
+        "p365", "365", "p365x", "macro", "x-macro", "xmacro",
+        "sig p365", "sig sauer p365"
+    ]
+    
+    expanded.extend(variations)
+    
+    # Remove duplicates
+    config['keywords'] = list(set(expanded))
+    
+    return config
 
 def load_seen_ads():
     if os.path.exists(SEEN_ADS_FILE):
