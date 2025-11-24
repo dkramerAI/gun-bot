@@ -1,6 +1,27 @@
-import cloudscraper
+import sys
+import os
 
-# ... (imports)
+print("[-] SCRIPT STARTED - INITIALIZING...")
+
+try:
+    import requests
+    from bs4 import BeautifulSoup
+    import json
+    import re
+    from datetime import datetime, timedelta
+    print("[+] Basic modules imported.")
+except Exception as e:
+    print(f"[-] CRITICAL: Failed to import basic modules: {e}")
+    sys.exit(1)
+
+try:
+    import cloudscraper
+    print("[+] Cloudscraper imported.")
+    USE_CLOUDSCRAPER = True
+except Exception as e:
+    print(f"[-] WARNING: Cloudscraper failed to import: {e}")
+    print("[-] Falling back to standard requests.")
+    USE_CLOUDSCRAPER = False
 
 def check_for_guns():
     print(f"[*] Checking for firearms at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}...")
@@ -8,13 +29,26 @@ def check_for_guns():
     seen_ads = load_seen_ads()
     keywords = [k.lower() for k in config.get('keywords', [])]
     
-    # Use cloudscraper to bypass Cloudflare/blocking
-    scraper = cloudscraper.create_scraper()
-    
-    response = scraper.get(CATEGORY_URL)
-    if response.status_code != 200:
-        print(f"[-] Failed to fetch page: {response.status_code}")
-        raise Exception(f"HTTP Error {response.status_code}")
+    # Use cloudscraper if available, otherwise fallback to requests
+    try:
+        if USE_CLOUDSCRAPER:
+            print("    Using Cloudscraper...")
+            scraper = cloudscraper.create_scraper()
+            response = scraper.get(CATEGORY_URL)
+        else:
+            print("    Using Standard Requests (Fallback)...")
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+            response = requests.get(CATEGORY_URL, headers=headers)
+            
+        if response.status_code != 200:
+            print(f"[-] Failed to fetch page: {response.status_code}")
+            raise Exception(f"HTTP Error {response.status_code}")
+
+    except Exception as e:
+        print(f"[-] Request Failed: {e}")
+        raise e
 
     soup = BeautifulSoup(response.content, 'html.parser')
     
@@ -41,7 +75,11 @@ def check_for_guns():
             
             # Visit detail page to get details
             try:
-                ad_resp = scraper.get(url)
+                if USE_CLOUDSCRAPER:
+                    ad_resp = scraper.get(url)
+                else:
+                    ad_resp = requests.get(url, headers=headers)
+                    
                 ad_soup = BeautifulSoup(ad_resp.content, 'html.parser')
                 
                 # 1. Check Timestamp
