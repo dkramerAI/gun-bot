@@ -148,8 +148,7 @@ def send_telegram_message(message, config):
     chat_id = config.get('telegram_chat_id')
     
     if not token or not chat_id:
-        print("[-] Telegram not configured.")
-        return
+        raise Exception("[-] Telegram secrets are MISSING! Check GitHub Settings.")
 
     try:
         url = f"https://api.telegram.org/bot{token}/sendMessage"
@@ -159,12 +158,16 @@ def send_telegram_message(message, config):
             "parse_mode": "HTML",
             "disable_web_page_preview": False
         }
+        print(f"    Sending message to {chat_id}...")
         response = requests.post(url, data=data)
             
         if response.status_code != 200:
-            print(f"[-] Failed to send Telegram message: {response.text}")
+            raise Exception(f"[-] Telegram API Error: {response.text}")
+            
+        print("    [+] Message sent successfully!")
+            
     except Exception as e:
-        print(f"[-] Error sending Telegram message: {e}")
+        raise e
 
 if __name__ == "__main__":
     check_for_guns()
