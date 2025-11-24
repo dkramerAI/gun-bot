@@ -155,11 +155,41 @@ def main():
                         price_tag = ad_soup.find('span', class_='price_val')
                         price = f"${price_tag.get_text().strip()}" if price_tag else "N/A"
                         
+                        # 1. Check Timestamp
+                        posted_text = ad_soup.find(string=re.compile(r'Posted:\s*'))
+                        time_str = "Unknown"
+                        if posted_text:
+                            time_str = posted_text.strip().replace('Posted:', '').strip()
+                            
+                        # 2. Location
+                        location = "Unknown"
+                        region_tag = ad_soup.find('span', class_='region')
+                        if region_tag:
+                            location = region_tag.get_text().strip()
+                        else:
+                            loc_header = ad_soup.find('h2', string='Location')
+                            if loc_header:
+                                location = loc_header.find_next(string=True).strip()
+
+                        # 3. Description
+                        description = "No description available."
+                        desc_div = ad_soup.find('div', class_='dj-item-description')
+                        if not desc_div:
+                                desc_div = ad_soup.find('div', class_='description')
+                        
+                        if desc_div:
+                            description = desc_div.get_text(separator=' ', strip=True)[:500] + "..."
+
+                        # 4. Send Notification (Rich Format)
                         msg = (
                             f"🚨 <b>GUN ALERT</b> 🚨\n\n"
                             f"<b>Title:</b> {title}\n"
                             f"<b>Price:</b> {price}\n"
-                            f"🔗 <a href='{url}'><b>OPEN AD</b></a>"
+                            f"<b>Location:</b> {location}\n"
+                            f"<b>Posted:</b> {time_str}\n\n"
+                            f"📝 <b>Description:</b>\n<i>{description}</i>\n\n"
+                            f"📞 <b>Contact:</b> <a href='{url}'>Click to View Contact Info</a>\n\n"
+                            f"🔗 <a href='{url}'><b>OPEN ADVERTISEMENT</b></a>"
                         )
                         
                         send_telegram_safe(msg)
