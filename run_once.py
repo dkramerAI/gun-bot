@@ -11,11 +11,10 @@ def check_for_guns():
     # Use cloudscraper to bypass Cloudflare/blocking
     scraper = cloudscraper.create_scraper()
     
-    try:
-        response = scraper.get(CATEGORY_URL)
-        if response.status_code != 200:
-            print(f"[-] Failed to fetch page: {response.status_code}")
-            raise Exception(f"HTTP Error {response.status_code}")
+    response = scraper.get(CATEGORY_URL)
+    if response.status_code != 200:
+        print(f"[-] Failed to fetch page: {response.status_code}")
+        raise Exception(f"HTTP Error {response.status_code}")
 
     soup = BeautifulSoup(response.content, 'html.parser')
     
