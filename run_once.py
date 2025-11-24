@@ -1,48 +1,6 @@
-import requests
-from bs4 import BeautifulSoup
-import json
-import os
-import re
-from datetime import datetime, timedelta
+import cloudscraper
 
-# Configuration
-CONFIG_FILE = 'config.json'
-SEEN_ADS_FILE = 'seen_ads.json'
-BASE_URL = "https://gunsarizona.com"
-CATEGORY_URL = "https://gunsarizona.com/classifieds-search?se=1&se_cats=23&days_l=1"
-
-def load_config():
-    # Check for environment variables first (for GitHub Actions)
-    if os.getenv('TELEGRAM_BOT_TOKEN') and os.getenv('TELEGRAM_CHAT_ID'):
-        return {
-            'telegram_bot_token': os.getenv('TELEGRAM_BOT_TOKEN'),
-            'telegram_chat_id': os.getenv('TELEGRAM_CHAT_ID'),
-            'keywords': [
-                # Daniel Defense variations
-                "daniel defense", "dd", "ddm4", "ddm7", "mk18",
-                # Glock 19 variations
-                "glock 19", "glock19", "g19", "glock 19 gen 5", "glock 19 gen5",
-                # Glock 43X variations
-                "glock 43x", "glock43x", "g43x", "43x",
-                # Sig P365 variations
-                "p365", "365", "p365x", "p365 macro", "p365 x-macro", "p365 xmacro",
-                "sig p365", "sig sauer p365", "365x macro", "x-macro", "xmacro"
-            ],
-            'max_price': 5000
-        }
-    else:
-        with open(CONFIG_FILE, 'r') as f:
-            return json.load(f)
-
-def load_seen_ads():
-    if os.path.exists(SEEN_ADS_FILE):
-        with open(SEEN_ADS_FILE, 'r') as f:
-            return set(json.load(f))
-    return set()
-
-def save_seen_ads(seen_ads):
-    with open(SEEN_ADS_FILE, 'w') as f:
-        json.dump(list(seen_ads), f)
+# ... (imports)
 
 def check_for_guns():
     print(f"[*] Checking for firearms at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}...")
@@ -50,20 +8,14 @@ def check_for_guns():
     seen_ads = load_seen_ads()
     keywords = [k.lower() for k in config.get('keywords', [])]
     
-    # Real browser headers to avoid blocking
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-    }
+    # Use cloudscraper to bypass Cloudflare/blocking
+    scraper = cloudscraper.create_scraper()
     
-    response = requests.get(CATEGORY_URL, headers=headers)
-    if response.status_code != 200:
-        print(f"[-] Failed to fetch page: {response.status_code}")
-        raise Exception(f"HTTP Error {response.status_code}")
+    try:
+        response = scraper.get(CATEGORY_URL)
+        if response.status_code != 200:
+            print(f"[-] Failed to fetch page: {response.status_code}")
+            raise Exception(f"HTTP Error {response.status_code}")
 
     soup = BeautifulSoup(response.content, 'html.parser')
     
@@ -90,7 +42,7 @@ def check_for_guns():
             
             # Visit detail page to get details
             try:
-                ad_resp = requests.get(url, headers=headers)
+                ad_resp = scraper.get(url)
                 ad_soup = BeautifulSoup(ad_resp.content, 'html.parser')
                 
                 # 1. Check Timestamp
