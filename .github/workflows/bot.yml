@@ -23,7 +23,7 @@ jobs:
     
     - name: Install dependencies
       run: |
-        pip install requests beautifulsoup4 cloudscraper
+        pip install requests beautifulsoup4
     
     - name: Run bot
       env:
