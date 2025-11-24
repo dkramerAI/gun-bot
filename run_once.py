@@ -138,7 +138,11 @@ def check_for_guns():
                     print(f"[-] Error checking ad detail {url}: {e}")
         
         save_seen_ads(seen_ads)
+        save_seen_ads(seen_ads)
         print(f"[*] Check complete. {new_ads_found} new notifications sent.")
+        
+        if new_ads_found == 0:
+            raise Exception("DEBUG: No guns found! Scraper might be blocked or keywords not matching.")
 
     except Exception as e:
         print(f"[-] Error during check: {e}")
@@ -169,5 +173,21 @@ def send_telegram_message(message, config):
     except Exception as e:
         raise e
 
-if __name__ == "__main__":
+def main():
+    print("Starting GunsArizona Bot...")
+    config = load_config()
+    
+    # 1. Send Startup Message to verify Telegram is working
+    print("[-] Attempting to send startup message...")
+    try:
+        send_telegram_message("⚠️ <b>DEBUG:</b> Bot started on GitHub!", config)
+        print("[+] Startup message sent!")
+    except Exception as e:
+        print(f"[-] Startup message FAILED: {e}")
+        raise e
+
+    # 2. Run check
     check_for_guns()
+
+if __name__ == "__main__":
+    main()
