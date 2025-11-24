@@ -22,11 +22,26 @@ def get_config_safe():
             'telegram_bot_token': token,
             'telegram_chat_id': chat_id,
             'keywords': [
-                "daniel defense", "dd", "ddm4", "ddm7", "mk18",
-                "glock 19", "glock19", "g19", "glock 19 gen 5", "glock 19 gen5",
-                "glock 43x", "glock43x", "g43x", "43x",
-                "p365", "365", "p365x", "p365 macro", "p365 x-macro", "p365 xmacro",
-                "sig p365", "sig sauer p365", "365x macro", "x-macro", "xmacro"
+                # Daniel Defense
+                "daniel defense", "daniel defnse", "dan defense", "dd", "ddm4", 
+                "ddm4v7", "ddm4 v7", "ddm4v5", "dd m4", "ddm7", "mk18", "mk-18", 
+                "dd mk18", "daniel defense upper", "daniel defense lower", 
+                "daniel defense ar", "dd ar15", "dd ar-15",
+                
+                # Glock 19
+                "glock 19", "glock19", "glock-19", "g19", "g-19", "g19 gen5", 
+                "g19 gen 5", "glock 19 gen5", "glock 19 gen 5", "g19 mos", 
+                "19 mos", "glock 19 mos", "g19c", "g19x",
+                
+                # Glock 43X
+                "glock 43x", "glock43x", "g43x", "43x", "g43x mos", "43x mos", 
+                "43x rail", "g43x rail", "43x tactical", "43x fde", "43x slide", 
+                "43x frame",
+                
+                # Sig P365
+                "p365", "p 365", "sig p365", "sigsauer p365", "p365x", "p365 x", 
+                "p365xl", "p365 macro", "p365 xmacro", "p365 x-macro", "365x", 
+                "365 xl", "365 macro", "p365 sas", "p365 rose", "xmacro", "x-macro"
             ]
         }
     
