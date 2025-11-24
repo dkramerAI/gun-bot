@@ -1,193 +1,183 @@
 import sys
 import os
+import json
+import time
+import urllib.request
+import urllib.parse
+from datetime import datetime
 
-print("[-] SCRIPT STARTED - INITIALIZING...")
+# --- FAIL-SAFE CONFIGURATION ---
+CONFIG_FILE = 'config.json'
+SEEN_ADS_FILE = 'seen_ads.json'
+BASE_URL = "https://gunsarizona.com"
+CATEGORY_URL = "https://gunsarizona.com/classifieds-search?se=1&se_cats=23&days_l=1"
 
-try:
-    import requests
-    from bs4 import BeautifulSoup
-    import json
-    import re
-    from datetime import datetime, timedelta
-    print("[+] Basic modules imported.")
-except Exception as e:
-    print(f"[-] CRITICAL: Failed to import basic modules: {e}")
-    sys.exit(1)
-
-try:
-    import cloudscraper
-    print("[+] Cloudscraper imported.")
-    USE_CLOUDSCRAPER = True
-except Exception as e:
-    print(f"[-] WARNING: Cloudscraper failed to import: {e}")
-    print("[-] Falling back to standard requests.")
-    USE_CLOUDSCRAPER = False
-
-def check_for_guns():
-    print(f"[*] Checking for firearms at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}...")
-    config = load_config()
-    seen_ads = load_seen_ads()
-    keywords = [k.lower() for k in config.get('keywords', [])]
+def get_config_safe():
+    """Load config from Env Vars (GitHub) or File (Local) without external deps."""
+    token = os.getenv('TELEGRAM_BOT_TOKEN')
+    chat_id = os.getenv('TELEGRAM_CHAT_ID')
     
-    # Use cloudscraper if available, otherwise fallback to requests
+    if token and chat_id:
+        return {
+            'telegram_bot_token': token,
+            'telegram_chat_id': chat_id,
+            'keywords': [
+                "daniel defense", "dd", "ddm4", "ddm7", "mk18",
+                "glock 19", "glock19", "g19", "glock 19 gen 5", "glock 19 gen5",
+                "glock 43x", "glock43x", "g43x", "43x",
+                "p365", "365", "p365x", "p365 macro", "p365 x-macro", "p365 xmacro",
+                "sig p365", "sig sauer p365", "365x macro", "x-macro", "xmacro"
+            ]
+        }
+    
     try:
-        if USE_CLOUDSCRAPER:
-            print("    Using Cloudscraper...")
-            scraper = cloudscraper.create_scraper()
-            response = scraper.get(CATEGORY_URL)
-        else:
-            print("    Using Standard Requests (Fallback)...")
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
-            }
-            response = requests.get(CATEGORY_URL, headers=headers)
-            
-        if response.status_code != 200:
-            print(f"[-] Failed to fetch page: {response.status_code}")
-            raise Exception(f"HTTP Error {response.status_code}")
-
+        with open(CONFIG_FILE, 'r') as f:
+            return json.load(f)
     except Exception as e:
-        print(f"[-] Request Failed: {e}")
-        raise e
+        print(f"[-] Config Load Error: {e}")
+        return None
 
-    soup = BeautifulSoup(response.content, 'html.parser')
-    
-    # Finding ads - be more specific to get only title links
-    ad_links = soup.find_all('a', href=re.compile(r'/classifieds/firearms/ad/'))
-    
-    new_ads_found = 0
-    
-    for link in ad_links:
-        title = link.get_text().strip()
-        url = link['href']
-        if not url.startswith('http'):
-            url = BASE_URL + url
-        
-        # Extract ID from URL (usually the last part)
-        ad_id = url.split('-')[-1]
-        
-        if ad_id in seen_ads:
-            continue
-            
-        # Check keywords in title
-        if any(keyword in title.lower() for keyword in keywords):
-            print(f"[+] Found potential match: {title}")
-            
-            # Visit detail page to get details
-            try:
-                if USE_CLOUDSCRAPER:
-                    ad_resp = scraper.get(url)
-                else:
-                    ad_resp = requests.get(url, headers=headers)
-                    
-                ad_soup = BeautifulSoup(ad_resp.content, 'html.parser')
-                
-                # 1. Check Timestamp
-                posted_text = ad_soup.find(string=re.compile(r'Posted:\s*'))
-                time_str = "Unknown"
-                if posted_text:
-                    time_str = posted_text.strip().replace('Posted:', '').strip()
-                
-                print(f"    - MATCH! Gathering details...")
-                
-                # 2. Extract Details
-                # Price
-                price = "N/A"
-                price_tag = ad_soup.find('span', class_='price_val')
-                if price_tag:
-                    price = f"${price_tag.get_text().strip()}"
-                    
-                # Location
-                location = "Unknown"
-                region_tag = ad_soup.find('span', class_='region')
-                if region_tag:
-                    location = region_tag.get_text().strip()
-                else:
-                    loc_header = ad_soup.find('h2', string='Location')
-                    if loc_header:
-                        location = loc_header.find_next(string=True).strip()
+def send_telegram_safe(message):
+    """Send Telegram message using ONLY standard libraries (urllib). Fail-safe."""
+    config = get_config_safe()
+    if not config:
+        print("[-] Cannot send Telegram: No config found.")
+        return
 
-                # Description
-                description = "No description available."
-                desc_div = ad_soup.find('div', class_='dj-item-description')
-                if not desc_div:
-                        desc_div = ad_soup.find('div', class_='description')
-                
-                if desc_div:
-                    description = desc_div.get_text(separator=' ', strip=True)[:500] + "..."
-
-                # 3. Send Notification
-                msg = (
-                    f"🚨 <b>GUN ALERT</b> 🚨\n\n"
-                    f"<b>Title:</b> {title}\n"
-                    f"<b>Price:</b> {price}\n"
-                    f"<b>Location:</b> {location}\n"
-                    f"<b>Posted:</b> {time_str}\n\n"
-                    f"📝 <b>Description:</b>\n<i>{description}</i>\n\n"
-                    f"📞 <b>Contact:</b> <a href='{url}'>Click to View Contact Info</a>\n\n"
-                    f"🔗 <a href='{url}'><b>OPEN ADVERTISEMENT</b></a>"
-                )
-                
-                send_telegram_message(msg, config)
-                seen_ads.add(ad_id)
-                new_ads_found += 1
-                    
-            except Exception as e:
-                print(f"[-] Error checking ad detail {url}: {e}")
-    
-    save_seen_ads(seen_ads)
-    print(f"[*] Check complete. {new_ads_found} new notifications sent.")
-    
-    if new_ads_found == 0:
-        # Debug: Print page title to see if blocked
-        print(f"DEBUG: Page Title: {soup.title.string if soup.title else 'No Title'}")
-        raise Exception("DEBUG: No guns found! Scraper might be blocked or keywords not matching.")
-
-def send_telegram_message(message, config):
     token = config.get('telegram_bot_token')
     chat_id = config.get('telegram_chat_id')
     
-    if not token or not chat_id:
-        raise Exception("[-] Telegram secrets are MISSING! Check GitHub Settings.")
-
-    try:
-        url = f"https://api.telegram.org/bot{token}/sendMessage"
-        data = {
-            "chat_id": chat_id,
-            "text": message,
-            "parse_mode": "HTML",
-            "disable_web_page_preview": False
-        }
-        print(f"    Sending message to {chat_id}...")
-        response = requests.post(url, data=data)
-            
-        if response.status_code != 200:
-            raise Exception(f"[-] Telegram API Error: {response.text}")
-            
-        print("    [+] Message sent successfully!")
-            
-    except Exception as e:
-        raise e
-
-def main():
-    print("Starting GunsArizona Bot...")
-    config = load_config()
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    data = {
+        "chat_id": chat_id,
+        "text": message,
+        "parse_mode": "HTML"
+    }
     
-    # 1. Send Startup Message to verify Telegram is working
-    print("[-] Attempting to send startup message...")
     try:
-        send_telegram_message("⚠️ <b>DEBUG:</b> Bot started on GitHub!", config)
-        print("[+] Startup message sent!")
+        encoded_data = urllib.parse.urlencode(data).encode('utf-8')
+        req = urllib.request.Request(url, data=encoded_data, method='POST')
+        with urllib.request.urlopen(req) as response:
+            if response.status == 200:
+                print("[+] Telegram message sent (Native Mode).")
+            else:
+                print(f"[-] Telegram Failed: {response.status}")
     except Exception as e:
-        print(f"[-] Startup message FAILED: {e}")
-        raise e
+        print(f"[-] Telegram Error (Native): {e}")
 
-    # 2. Run check
+# --- MAIN LOGIC ---
+def main():
+    print("[-] SCRIPT STARTED - INITIALIZING...")
+    
+    # 1. Send Immediate Startup Message (Zero Dependencies)
+    try:
+        send_telegram_safe("⚠️ <b>STATUS:</b> Bot Starting...")
+    except Exception:
+        pass # Don't crash if this fails, just try to continue
+
+    # 2. Import Heavy Dependencies
+    try:
+        import requests
+        from bs4 import BeautifulSoup
+        import re
+        print("[+] Dependencies imported successfully.")
+    except ImportError as e:
+        err_msg = f"⛔ <b>CRITICAL ERROR:</b> Import Failed!\n\n<code>{str(e)}</code>"
+        print(f"[-] {err_msg}")
+        send_telegram_safe(err_msg)
+        sys.exit(1)
+
+    # 3. Define Scraper Logic (Now that imports are safe)
+    def check_for_guns():
+        print(f"[*] Checking for firearms at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}...")
+        config = get_config_safe()
+        
+        # Load Seen Ads
+        seen_ads = set()
+        if os.path.exists(SEEN_ADS_FILE):
+            try:
+                with open(SEEN_ADS_FILE, 'r') as f:
+                    seen_ads = set(json.load(f))
+            except:
+                pass
+
+        keywords = [k.lower() for k in config.get('keywords', [])]
+        
+        # Headers to look like a real browser
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+        }
+        
+        try:
+            response = requests.get(CATEGORY_URL, headers=headers, timeout=30)
+            if response.status_code != 200:
+                raise Exception(f"HTTP {response.status_code}")
+                
+            soup = BeautifulSoup(response.content, 'html.parser')
+            ad_links = soup.find_all('a', href=re.compile(r'/classifieds/firearms/ad/'))
+            
+            new_ads_found = 0
+            
+            for link in ad_links:
+                title = link.get_text().strip()
+                url = link['href']
+                if not url.startswith('http'):
+                    url = BASE_URL + url
+                
+                ad_id = url.split('-')[-1]
+                
+                if ad_id in seen_ads:
+                    continue
+                    
+                if any(keyword in title.lower() for keyword in keywords):
+                    print(f"[+] Found match: {title}")
+                    
+                    # Get Details
+                    try:
+                        ad_resp = requests.get(url, headers=headers, timeout=15)
+                        ad_soup = BeautifulSoup(ad_resp.content, 'html.parser')
+                        
+                        price_tag = ad_soup.find('span', class_='price_val')
+                        price = f"${price_tag.get_text().strip()}" if price_tag else "N/A"
+                        
+                        msg = (
+                            f"🚨 <b>GUN ALERT</b> 🚨\n\n"
+                            f"<b>Title:</b> {title}\n"
+                            f"<b>Price:</b> {price}\n"
+                            f"🔗 <a href='{url}'><b>OPEN AD</b></a>"
+                        )
+                        
+                        send_telegram_safe(msg)
+                        seen_ads.add(ad_id)
+                        new_ads_found += 1
+                        
+                    except Exception as e:
+                        print(f"[-] Detail error: {e}")
+            
+            # Save Seen Ads
+            with open(SEEN_ADS_FILE, 'w') as f:
+                json.dump(list(seen_ads), f)
+                
+            print(f"[*] Check complete. {new_ads_found} new ads.")
+            
+            if new_ads_found == 0:
+                # Optional: Send heartbeat if nothing found? No, too spammy.
+                # But if 0 ads found, maybe blocked?
+                if len(ad_links) == 0:
+                     send_telegram_safe("⚠️ <b>WARNING:</b> Scraper found 0 ads total. Possible IP Block.")
+            
+        except Exception as e:
+            err = f"⚠️ <b>ERROR:</b> Scraper Failed!\n\n<code>{str(e)}</code>"
+            print(f"[-] {err}")
+            send_telegram_safe(err)
+            sys.exit(1)
+
+    # 4. Execute
     check_for_guns()
 
 if __name__ == "__main__":
