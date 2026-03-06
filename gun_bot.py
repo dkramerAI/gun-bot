@@ -18,7 +18,7 @@ from bs4 import BeautifulSoup
 
 BASE_URL = "https://gunsarizona.com"
 CATEGORY_URL = "https://gunsarizona.com/classifieds-search?se=1&se_cats=23&days_l=1"
-DEFAULT_INTERVAL_MINUTES = 5
+DEFAULT_INTERVAL_MINUTES = 60
 REQUEST_TIMEOUT_SECONDS = 30
 MAX_DESCRIPTION_LENGTH = 700
 USER_AGENT = (
@@ -96,6 +96,13 @@ def trim_text(value: str, limit: int = MAX_DESCRIPTION_LENGTH) -> str:
     if len(value) <= limit:
         return value
     return value[: limit - 3].rstrip() + "..."
+
+
+def pretty_price(value: str) -> str:
+    match = re.fullmatch(r"(\d+(?:\.\d+)?)\s+USD", value.strip(), re.IGNORECASE)
+    if not match:
+        return value
+    return f"${float(match.group(1)):,.2f}"
 
 
 def extract_ad_id(url: str) -> str:
@@ -304,29 +311,31 @@ def build_listing_details(listing: SearchListing) -> ListingDetails:
 
 def format_telegram_message(listing: SearchListing, details: ListingDetails) -> str:
     title = html.escape(details.title)
-    price = html.escape(details.price)
+    price = html.escape(pretty_price(details.price))
     location = html.escape(details.location)
     added = html.escape(details.added)
     url = html.escape(listing.url, quote=True)
 
     def compose_message(description_text: str) -> str:
         lines = [
-            "<b>Gun Match</b>",
-            f"<b>Title:</b> {title}",
-            f"<b>Price:</b> {price}",
-            f"<b>Location:</b> {location}",
-            f"<b>Added:</b> {added}",
+            "<b>GunsArizona Listing Match</b>",
+            "",
+            f"<b>{title}</b>",
+            f"Price: {price}",
+            f"Location: {location}",
+            f"Posted: {added}",
         ]
 
         if details.contact:
-            lines.append(f"<b>Contact:</b> {html.escape(details.contact)}")
+            lines.append(f"Contact: {html.escape(details.contact)}")
 
         lines.extend(
             [
                 "",
-                f"<b>Description:</b> {html.escape(description_text)}",
+                "<b>Description</b>",
+                html.escape(description_text),
                 "",
-                f'<a href="{url}">Open ad</a>',
+                f'<a href="{url}">View listing on GunsArizona</a>',
             ]
         )
         return "\n".join(lines)

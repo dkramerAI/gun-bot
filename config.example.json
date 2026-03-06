@@ -1,7 +1,7 @@
 {
   "telegram_bot_token": "",
   "telegram_chat_id": "",
-  "check_interval_minutes": 5,
+  "check_interval_minutes": 60,
   "keywords": [
     "Daniel Defense",
     "DDM4",

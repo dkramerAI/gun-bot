@@ -130,9 +130,12 @@ class GunBotParsingTest(unittest.TestCase):
 
         message = format_telegram_message(listing, details)
 
+        self.assertIn("<b>GunsArizona Listing Match</b>", message)
         self.assertIn("Sig &lt;P365&gt;", message)
+        self.assertIn("Price: $500.00", message)
         self.assertIn("Glendale &amp; Peoria", message)
         self.assertIn("Use &lt;html&gt; safely", message)
+        self.assertIn("View listing on GunsArizona", message)
         self.assertIn('href="https://example.com/ad/1"', message)
 
 
