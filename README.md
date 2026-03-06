@@ -1,72 +1,85 @@
-# 🔫 GunsArizona Bot
+# GunsArizona Bot
 
-Automatically monitors GunsArizona.com for specific firearms and sends Telegram notifications.
+This bot scans GunsArizona firearm listings, filters them by your keywords, and sends Telegram alerts for new matches.
 
-## Features
-- Scans every 15 minutes for new listings
-- Filters by keywords (Daniel Defense, Glock 19, Glock 43x, Sig P365 variants)
-- Sends formatted Telegram alerts with price, location, description
-- Remembers sent ads to avoid duplicates
+## What changed
 
-## Running on GitHub Actions (24/7, Free)
+The old GitHub Actions path depended on Selenium, Chrome, and `webdriver-manager` every run. The site currently serves the listing HTML directly, so the bot now uses a single shared scraper based on `urllib` + BeautifulSoup. That removes the browser dependency and makes local runs and Actions runs much less brittle.
 
-This bot runs automatically on GitHub Actions. No server needed!
+## Files
 
-### Setup Instructions
+- `run_once.py`: run a single scan
+- `main.py`: run continuously with a sleep loop between scans
+- `config.example.json`: sample config you can copy to `config.json`
+- `seen_ads.json`: list of ad IDs that have already triggered alerts
 
-#### 1. Create GitHub Repository
-1. Go to [GitHub.com](https://github.com) and create a new repository
-2. Name it `gun-bot` (or whatever you prefer)
-3. Make it **Private** (important!)
+## GitHub Actions setup
 
-#### 2. Push Code to GitHub
-Open terminal in this folder and run:
-```bash
-git init
-git add .
-git commit -m "Initial commit"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/gun-bot.git
-git push -u origin main
-```
-
-#### 3. Set Up Secrets
-1. Go to your repository on GitHub
-2. Click **Settings** → **Secrets and variables** → **Actions**
-3. Click **New repository secret** and add these 3 secrets:
+1. Push this repo to GitHub.
+2. Add these repository secrets:
 
 | Name | Value |
-|------|-------|
-| `TELEGRAM_BOT_TOKEN` | Your bot token (from config.json) |
-| `TELEGRAM_CHAT_ID` | Your chat ID (from config.json) |
-| `PAT_TOKEN` | Create a Personal Access Token (see below) |
+| --- | --- |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token |
+| `TELEGRAM_CHAT_ID` | Telegram chat ID |
 
-**Creating PAT_TOKEN:**
-1. Go to GitHub Settings (your profile, not repo) → Developer settings → Personal access tokens → Tokens (classic)
-2. Click "Generate new token (classic)"
-3. Give it a name like "Gun Bot"
-4. Check the `repo` scope
-5. Click Generate and copy the token
-6. Paste it as the `PAT_TOKEN` secret
+3. Optional: copy `config.example.json` to `config.json`, change the keywords or interval, and commit it.
+4. Enable Actions in the repo.
+5. The workflow runs every 5 minutes and commits `seen_ads.json` back when new alerts are sent.
 
-#### 4. Enable Actions
-1. Go to the **Actions** tab in your repo
-2. Click "I understand my workflows, go ahead and enable them"
-3. The bot will now run every 15 minutes!
+`PAT_TOKEN` is no longer required. The workflow uses the default `GITHUB_TOKEN` with `contents: write`.
 
-#### 5. Manual Test
-Click **Actions** → **Gun Bot Scanner** → **Run workflow** to test immediately.
+## Local usage
 
-## Local Testing
 ```bash
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install requests beautifulsoup4 schedule
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp config.example.json config.json
+python run_once.py --dry-run
+```
+
+The `--dry-run` flag prints matches instead of sending Telegram messages or updating `seen_ads.json`.
+
+To run continuously:
+
+```bash
 python main.py
 ```
 
-## How It Works
-- GitHub Actions runs `run_once.py` every 15 minutes
-- The script checks for new listings matching your keywords
-- Any new matches trigger a Telegram notification
-- The `seen_ads.json` file is automatically committed back to the repo
+Useful flags:
+
+- `python run_once.py --config config.json --seen-file seen_ads.json`
+- `python main.py --interval 10`
+- `python run_once.py --dry-run`
+
+## Config
+
+`config.json` supports:
+
+```json
+{
+  "telegram_bot_token": "",
+  "telegram_chat_id": "",
+  "check_interval_minutes": 5,
+  "keywords": [
+    "Daniel Defense",
+    "Glock 19",
+    "Glock 43X",
+    "Sig P365"
+  ]
+}
+```
+
+Environment variables override the file:
+
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
+- `GUN_BOT_KEYWORDS` as a comma-separated list
+- `CHECK_INTERVAL_MINUTES`
+
+## Notes
+
+- Alerts are only marked as seen after a Telegram message is sent successfully.
+- If Telegram is not configured, matches are printed to stdout and left unseen.
+- `run_once.py` and `main.py` now use the same scraper logic, so local runs and GitHub Actions behave the same way.
