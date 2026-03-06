@@ -1,0 +1,16 @@
+{
+  "telegram_bot_token": "",
+  "telegram_chat_id": "",
+  "check_interval_minutes": 5,
+  "keywords": [
+    "Daniel Defense",
+    "DDM4",
+    "MK18",
+    "Glock 19",
+    "Glock 43X",
+    "Sig P365",
+    "P365X",
+    "P365XL",
+    "XMacro"
+  ]
+}
