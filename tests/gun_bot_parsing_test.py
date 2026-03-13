@@ -4,6 +4,7 @@ from gun_bot import (
     ListingDetails,
     SearchListing,
     format_telegram_message,
+    listing_is_closed,
     listing_matches_keywords,
     parse_listing_details,
     parse_search_results,
@@ -87,6 +88,30 @@ class GunBotParsingTest(unittest.TestCase):
         self.assertTrue(listing_matches_keywords(listing, ["Glock 19"]))
         self.assertTrue(listing_matches_keywords(listing, ["glock19"]))
         self.assertFalse(listing_matches_keywords(listing, ["Daniel Defense"]))
+
+    def test_listing_is_closed_detects_sold_and_pending_markers(self) -> None:
+        sold_listing = SearchListing(
+            ad_id="1",
+            title="**SOLD** Glock 19x Near Mint",
+            url="https://gunsarizona.com/classifieds/firearms/ad/1",
+            snippet="No longer available.",
+        )
+        pending_listing = SearchListing(
+            ad_id="2",
+            title="[PENDING] Sig P365",
+            url="https://gunsarizona.com/classifieds/firearms/ad/2",
+            snippet="Pending pickup",
+        )
+        active_listing = SearchListing(
+            ad_id="3",
+            title="Sig P365 XMacro",
+            url="https://gunsarizona.com/classifieds/firearms/ad/3",
+            snippet="Excellent condition",
+        )
+
+        self.assertTrue(listing_is_closed(sold_listing))
+        self.assertTrue(listing_is_closed(pending_listing))
+        self.assertFalse(listing_is_closed(active_listing))
 
     def test_parse_listing_details_prefers_primary_ad_fields(self) -> None:
         listing = SearchListing(
