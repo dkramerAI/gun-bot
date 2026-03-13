@@ -18,7 +18,7 @@ from bs4 import BeautifulSoup
 
 BASE_URL = "https://gunsarizona.com"
 CATEGORY_URL = "https://gunsarizona.com/classifieds-search?se=1&se_cats=23&days_l=1"
-DEFAULT_INTERVAL_MINUTES = 60
+DEFAULT_INTERVAL_MINUTES = 360
 REQUEST_TIMEOUT_SECONDS = 30
 MAX_DESCRIPTION_LENGTH = 700
 USER_AGENT = (

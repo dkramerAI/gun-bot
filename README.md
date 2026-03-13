@@ -25,7 +25,7 @@ The old GitHub Actions path depended on Selenium, Chrome, and `webdriver-manager
 
 3. Optional: copy `config.example.json` to `config.json`, change the keywords or interval, and commit it.
 4. Enable Actions in the repo.
-5. The workflow runs at the top of every hour and commits `seen_ads.json` back when new alerts are sent.
+5. The workflow runs every 6 hours and commits `seen_ads.json` back when new alerts are sent.
 
 `PAT_TOKEN` is no longer required. The workflow uses the default `GITHUB_TOKEN` with `contents: write`.
 
@@ -50,7 +50,7 @@ python main.py
 Useful flags:
 
 - `python run_once.py --config config.json --seen-file seen_ads.json`
-- `python main.py --interval 60`
+- `python main.py --interval 360`
 - `python run_once.py --dry-run`
 
 ## Config
@@ -61,7 +61,7 @@ Useful flags:
 {
   "telegram_bot_token": "",
   "telegram_chat_id": "",
-  "check_interval_minutes": 60,
+  "check_interval_minutes": 360,
   "keywords": [
     "Daniel Defense",
     "Glock 19",
