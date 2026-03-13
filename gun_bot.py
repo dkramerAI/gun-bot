@@ -36,6 +36,16 @@ DEFAULT_KEYWORDS = [
     "P365XL",
     "XMacro",
 ]
+CLOSED_LISTING_MARKERS = (
+    "sold",
+    "pending",
+    "spf",
+    "traded",
+    "trade",
+    "withdrawn",
+    "expired",
+    "closed",
+)
 
 
 @dataclass(frozen=True)
@@ -64,6 +74,7 @@ class ScanSummary:
     started_at: datetime = field(default_factory=datetime.now)
     listings_checked: int = 0
     skipped_seen: int = 0
+    skipped_closed: int = 0
     matched: int = 0
     delivered: int = 0
     previewed: int = 0
@@ -295,6 +306,22 @@ def listing_matches_keywords(listing: SearchListing, keywords: list[str]) -> boo
     return False
 
 
+def listing_is_closed(listing: SearchListing) -> bool:
+    title_normalized = re.sub(r"[^a-z0-9]+", " ", listing.title.lower()).strip()
+    snippet_normalized = re.sub(r"[^a-z0-9]+", " ", listing.snippet.lower()).strip()
+
+    for marker in CLOSED_LISTING_MARKERS:
+        if title_normalized.startswith(f"{marker} "):
+            return True
+        if title_normalized == marker:
+            return True
+
+    if "no longer available" in title_normalized or "no longer available" in snippet_normalized:
+        return True
+
+    return False
+
+
 def build_listing_details(listing: SearchListing) -> ListingDetails:
     try:
         return parse_listing_details(fetch_html(listing.url), listing)
@@ -424,6 +451,10 @@ def scan_once(
             summary.skipped_seen += 1
             continue
 
+        if listing_is_closed(listing):
+            summary.skipped_closed += 1
+            continue
+
         if not listing_matches_keywords(listing, keywords):
             continue
 
@@ -473,6 +504,7 @@ def print_summary(summary: ScanSummary) -> None:
         f"[*] Scan finished at {timestamp} | checked={summary.listings_checked} "
         f"matched={summary.matched} sent={summary.delivered} "
         f"previewed={summary.previewed} seen={summary.skipped_seen} "
+        f"closed={summary.skipped_closed} "
         f"errors={len(summary.errors)}"
     )
     for error in summary.errors:
